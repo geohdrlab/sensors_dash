@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS metrics_history (
 );
 CREATE INDEX IF NOT EXISTS idx_sensor_metric_ts
 ON metrics_history(sensor_id, metric, timestamp);
+CREATE INDEX IF NOT EXISTS idx_sensor_ts
+ON metrics_history(sensor_id, timestamp);
 """
 
 

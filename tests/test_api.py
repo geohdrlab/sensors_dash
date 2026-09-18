@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from database import record_snapshot
-from main import create_app
+from main import create_app, snapshot_loop
 
 
 def test_public_descriptor_health_and_openapi(settings_factory):
@@ -55,6 +57,9 @@ def test_sensor_routes_history_limits_and_metadata_redaction(settings_factory):
         assert client.get("/api/v1/sensors/air-sensor-02/latest").status_code == 404
         assert client.get("/api/v1/sensors/air-sensor-01/history?metric=bad").status_code == 422
         assert client.get("/api/v1/sensors/air-sensor-01/history?hours=721").status_code == 422
+        assert client.get("/api/v1/sensors/air-sensor-01/history?hours=NaN").status_code == 422
+        assert client.get("/api/v1/sensors/air-sensor-01/history?hours=inf").status_code == 422
+        assert client.get("/api/v1/sensors/air-sensor-01/readings?hours=NaN").status_code == 422
         assert client.get("/api/v1/sensors/air-sensor-01/readings?limit=5001").status_code == 422
 
 
@@ -89,12 +94,11 @@ def test_required_api_key_and_websocket_auth(settings_factory):
             websocket.send_text("ping")
             assert websocket.receive_json()["type"] == "pong"
 
-        try:
+        with pytest.raises(WebSocketDisconnect) as disconnect:
             with client.websocket_connect("/api/v1/ws") as websocket:
                 websocket.send_json({"type": "authenticate", "api_key": "wrong"})
                 websocket.receive_json()
-        except WebSocketDisconnect as exc:
-            assert exc.code == 1008
+        assert disconnect.value.code == 1008
 
 
 def test_cors_is_restrictive(settings_factory):
@@ -136,3 +140,35 @@ def test_internal_errors_do_not_expose_exception_text(settings_factory, monkeypa
         assert response.status_code == 500
         assert response.json() == {"detail": "Internal server error", "code": "internal_error"}
         assert "private" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_snapshot_loop_uses_snapshot_time(settings_factory, monkeypatch):
+    sensor = SimpleNamespace(
+        online=True,
+        id="air-sensor-01",
+        metrics={"co2": 450.0},
+    )
+    application = SimpleNamespace(
+        state=SimpleNamespace(
+            settings=settings_factory(),
+            pool=SimpleNamespace(all=lambda: [sensor]),
+        )
+    )
+    timestamps = []
+    sleep_calls = 0
+
+    async def one_iteration(_seconds):
+        nonlocal sleep_calls
+        sleep_calls += 1
+        if sleep_calls > 1:
+            raise asyncio.CancelledError
+
+    async def capture_snapshot(_path, _sensor_id, _metrics, timestamp=None):
+        timestamps.append(timestamp)
+
+    monkeypatch.setattr("main.asyncio.sleep", one_iteration)
+    monkeypatch.setattr("main.record_snapshot", capture_snapshot)
+    with pytest.raises(asyncio.CancelledError):
+        await snapshot_loop(application)
+    assert timestamps == [None]

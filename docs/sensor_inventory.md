@@ -28,7 +28,7 @@
 
 - **Collector interface**: Embedded web server on port `80`, using REST and `/events` SSE.
 - **OTA Updates**:
-  - Platform `esphome` (Password: `apolloautomation` or secret)
+  - Platform `esphome` (credentials are managed outside this repository)
   - Platform `http_request` (HTTPS manifest auto-update)
 - **Deep Sleep Configuration**: Default 5 min sleep, 2 min run duration (configurable via slider).
 

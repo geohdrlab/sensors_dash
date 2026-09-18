@@ -16,6 +16,8 @@ async def test_database_is_idempotent_and_uses_wal(tmp_path):
     async with aiosqlite.connect(path) as connection:
         cursor = await connection.execute("PRAGMA journal_mode")
         assert (await cursor.fetchone())[0].lower() == "wal"
+        cursor = await connection.execute("PRAGMA index_info(idx_sensor_ts)")
+        assert [row[2] for row in await cursor.fetchall()] == ["sensor_id", "timestamp"]
 
 
 @pytest.mark.asyncio

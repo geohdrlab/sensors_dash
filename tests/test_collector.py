@@ -82,3 +82,89 @@ async def test_dns_failure_retries_without_marking_sensor_online(monkeypatch):
         await pool._run_sensor(sensor)
     assert attempts == 2
     assert sensor.online is False
+
+
+@pytest.mark.asyncio
+async def test_clean_sse_eof_marks_offline_and_increases_backoff(monkeypatch):
+    sensor = SensorState(
+        id="air-sensor-01", name="Sensor 1", hostname="sensor.example",
+        mac=None, model="AIR-1", firmware_version=None, stale_after_seconds=180,
+        last_seen=utc_now(),
+    )
+    updates = []
+
+    async def on_update(_sensor_id, state):
+        updates.append(state["online"])
+
+    class EmptyContent:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class Response:
+        headers = {"Content-Type": "text/event-stream"}
+        content = EmptyContent()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def raise_for_status(self):
+            return None
+
+    class Session:
+        def get(self, *_args, **_kwargs):
+            return Response()
+
+    pool = SensorPool([sensor], on_update=on_update)
+    pool._session = Session()
+    delays = []
+
+    async def resolve(_sensor):
+        return None
+
+    async def record_delay(seconds):
+        delays.append(seconds)
+        if len(delays) == 2:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(pool, "_resolve", resolve)
+    monkeypatch.setattr("collector.asyncio.sleep", record_delay)
+    monkeypatch.setattr("collector.random.uniform", lambda *_args: 0)
+    with pytest.raises(asyncio.CancelledError):
+        await pool._run_sensor(sensor)
+    assert sensor.connected is False
+    assert delays == [1.0, 2.0]
+    assert updates == [True, False, True, False]
+
+
+@pytest.mark.asyncio
+async def test_freshness_monitor_broadcasts_stale_transition(monkeypatch):
+    sensor = SensorState(
+        id="air-sensor-01", name="Sensor 1", hostname="sensor.example",
+        mac=None, model="AIR-1", firmware_version=None, stale_after_seconds=180,
+        connected=True, last_seen=utc_now(),
+    )
+    updates = []
+
+    async def on_update(_sensor_id, state):
+        updates.append((state["stale"], state["online"]))
+
+    pool = SensorPool([sensor], on_update=on_update)
+    sensor.last_seen = utc_now() - timedelta(seconds=181)
+    sleep_calls = 0
+
+    async def one_iteration(_seconds):
+        nonlocal sleep_calls
+        sleep_calls += 1
+        if sleep_calls > 1:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr("collector.asyncio.sleep", one_iteration)
+    with pytest.raises(asyncio.CancelledError):
+        await pool._monitor_freshness()
+    assert updates == [(True, False)]

@@ -202,6 +202,7 @@ class SensorPool:
         self.on_update = on_update
         self._session: aiohttp.ClientSession | None = None
         self._tasks: list[asyncio.Task[None]] = []
+        self._reported_stale = {sensor.id: sensor.stale for sensor in sensors}
 
     async def start(self) -> None:
         timeout = aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=45)
@@ -210,6 +211,9 @@ class SensorPool:
             asyncio.create_task(self._run_sensor(sensor), name=f"collector:{sensor.id}")
             for sensor in self.sensors.values()
         ]
+        self._tasks.append(
+            asyncio.create_task(self._monitor_freshness(), name="collector:freshness")
+        )
 
     async def stop(self) -> None:
         for task in self._tasks:
@@ -228,8 +232,28 @@ class SensorPool:
         return sorted(self.sensors.values(), key=lambda sensor: sensor.id)
 
     async def _notify(self, sensor: SensorState) -> None:
+        self._reported_stale[sensor.id] = sensor.stale
         if self.on_update:
             await self.on_update(sensor.id, sensor.as_dict())
+
+    async def _monitor_freshness(self) -> None:
+        """Publish a transition when an open but silent stream becomes stale."""
+        interval = max(
+            1.0,
+            min(
+                5.0,
+                min(
+                    (sensor.stale_after_seconds for sensor in self.sensors.values()),
+                    default=5,
+                ) / 2,
+            ),
+        )
+        while True:
+            await asyncio.sleep(interval)
+            for sensor in self.sensors.values():
+                stale = sensor.stale
+                if sensor.connected and stale != self._reported_stale[sensor.id]:
+                    await self._notify(sensor)
 
     async def _resolve(self, sensor: SensorState) -> None:
         loop = asyncio.get_running_loop()
@@ -242,6 +266,7 @@ class SensorPool:
     async def _run_sensor(self, sensor: SensorState) -> None:
         backoff = 1.0
         while True:
+            stream_started: float | None = None
             try:
                 await self._resolve(sensor)
                 assert self._session is not None
@@ -253,7 +278,7 @@ class SensorPool:
                     if "text/event-stream" not in response.headers.get("Content-Type", ""):
                         raise RuntimeError("sensor did not return an event stream")
                     sensor.connected = True
-                    backoff = 1.0
+                    stream_started = asyncio.get_running_loop().time()
                     logger.info("Sensor connected: %s", sensor.id)
                     await self._notify(sensor)
                     parser = SSEParser()
@@ -261,15 +286,23 @@ class SensorPool:
                         event = parser.feed_line(raw_line.decode("utf-8", "replace"))
                         if event:
                             await self._handle_event(sensor, *event)
+                    raise ConnectionError("sensor event stream ended")
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                if sensor.connected:
+                was_connected = sensor.connected
+                if was_connected:
                     logger.warning("Sensor disconnected: %s", sensor.id)
                 else:
                     logger.debug("Sensor connection failed for %s: %s", sensor.id, type(exc).__name__)
                 sensor.connected = False
-                await self._notify(sensor)
+                if was_connected:
+                    await self._notify(sensor)
+                if (
+                    stream_started is not None
+                    and asyncio.get_running_loop().time() - stream_started >= 10.0
+                ):
+                    backoff = 1.0
                 delay = min(backoff, 60.0) + random.uniform(0, min(backoff * 0.2, 5.0))
                 await asyncio.sleep(delay)
                 backoff = min(backoff * 2, 60.0)

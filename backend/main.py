@@ -226,7 +226,9 @@ def create_app(settings: Settings | None = None, start_background: bool = True) 
     async def sensor_history(
         sensor_id: str,
         metric: MetricName = Query(MetricName.co2, description="Metric to retrieve"),
-        hours: float = Query(24, ge=1, le=720, description="Lookback window in hours"),
+        hours: float = Query(
+            24, ge=1, le=720, allow_inf_nan=False, description="Lookback window in hours"
+        ),
         limit: int = Query(1000, ge=1, le=5000, description="Maximum points returned"),
         _: AuthContext = Depends(authenticate_request),
     ) -> HistoryResponse:
@@ -237,7 +239,9 @@ def create_app(settings: Settings | None = None, start_background: bool = True) 
     @application.get("/api/v1/sensors/{sensor_id}/readings", response_model=ReadingsResponse, tags=["history"], summary="Query multi-metric historical snapshots")
     async def sensor_readings(
         sensor_id: str,
-        hours: float = Query(24, ge=1, le=720, description="Lookback window in hours"),
+        hours: float = Query(
+            24, ge=1, le=720, allow_inf_nan=False, description="Lookback window in hours"
+        ),
         limit: int = Query(1000, ge=1, le=5000, description="Maximum snapshots returned"),
         _: AuthContext = Depends(authenticate_request),
     ) -> ReadingsResponse:
@@ -298,7 +302,7 @@ async def snapshot_loop(application: FastAPI) -> None:
             await asyncio.sleep(settings.snapshot_interval_seconds)
             for sensor in application.state.pool.all():
                 if sensor.online and any(value is not None for value in sensor.metrics.values()):
-                    await record_snapshot(settings.database_path, sensor.id, sensor.metrics, sensor.last_seen)
+                    await record_snapshot(settings.database_path, sensor.id, sensor.metrics)
         except asyncio.CancelledError:
             raise
         except Exception:
