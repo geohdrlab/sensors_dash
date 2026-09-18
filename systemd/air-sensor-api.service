@@ -1,0 +1,15 @@
+[Unit]
+Description=GeoHDR Lab AIR-1 Sensor API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/dr-li-air-sensors
+EnvironmentFile=-%h/.config/air-sensor-api.env
+ExecStart=%h/dr-li-air-sensors/scripts/start.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

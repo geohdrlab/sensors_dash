@@ -1,0 +1,13 @@
+{
+  "sensors": [
+    {"id": "air-sensor-01", "name": "Apollo AIR-1 01", "hostname": "air-sensor-01-2b8844.dyn.uncc.edu", "mac": "3c:dc:75:2b:88:44", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-02", "name": "Apollo AIR-1 02", "hostname": "air-sensor-02-2c59a8.dyn.uncc.edu", "mac": "3c:dc:75:2c:59:a8", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-03", "name": "Apollo AIR-1 03", "hostname": "air-sensor-03-3ec4c4.dyn.uncc.edu", "mac": "08:92:72:3e:c4:c4", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-04", "name": "Apollo AIR-1 04", "hostname": "air-sensor-04-420748.dyn.uncc.edu", "mac": "88:56:a6:42:07:48", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-05", "name": "Apollo AIR-1 05", "hostname": "air-sensor-05-3e4ca4.dyn.uncc.edu", "mac": "3c:dc:75:3e:4c:a4", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-06", "name": "Apollo AIR-1 06", "hostname": "air-sensor-06-2b991c.dyn.uncc.edu", "mac": "3c:dc:75:2b:99:1c", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-07", "name": "Apollo AIR-1 07", "hostname": "air-sensor-07-3e2468.dyn.uncc.edu", "mac": "3c:dc:75:3e:24:68", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-08", "name": "Apollo AIR-1 08", "hostname": "air-sensor-08-411de4.dyn.uncc.edu", "mac": "88:56:a6:41:1d:e4", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"},
+    {"id": "air-sensor-09", "name": "Apollo AIR-1 09", "hostname": "air-sensor-09-3f2018.dyn.uncc.edu", "mac": "08:92:72:3f:20:18", "model": "Apollo AIR-1 (ESP32-C3)", "esphome_version": "26.3.2.1"}
+  ]
+}

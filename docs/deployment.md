@@ -1,0 +1,40 @@
+# Linux deployment
+
+The service can run entirely from a user-owned directory. It does not require root, Docker, Nginx, or ports 80 and 443.
+
+## Manual no-root operation
+
+```bash
+git clone https://github.com/ompug/dr-li-air-sensors.git
+cd dr-li-air-sensors
+./scripts/install.sh
+export AIR_REQUIRE_API_KEY=true
+export AIR_API_KEY='replace-with-a-long-random-value'
+./scripts/start.sh
+```
+
+The default binding is `127.0.0.1:8000`. Set `AIR_HOST` only when another interface must reach the process. Put persistent SQLite storage in a user-writable location with `AIR_DATABASE_PATH`.
+
+## Optional systemd user service
+
+The included `systemd/air-sensor-api.service` assumes the checkout is at `%h/dr-li-air-sensors`. Edit its paths if necessary, then run:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp systemd/air-sensor-api.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now air-sensor-api
+journalctl --user -u air-sensor-api -f
+```
+
+Create `%h/.config/air-sensor-api.env` with permissions `0600` for production environment values. Do not commit that file.
+
+## Verification
+
+```bash
+curl http://127.0.0.1:8000/
+curl http://127.0.0.1:8000/api/v1/health
+curl -H "X-API-Key: YOUR_KEY" http://127.0.0.1:8000/api/v1/sensors
+```
+
+Cloudflare Tunnel and public-domain configuration are intentionally outside this repository phase.
