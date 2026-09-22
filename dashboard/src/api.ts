@@ -62,6 +62,38 @@ export async function getSensors(baseUrl: string, signal?: AbortSignal): Promise
   );
 }
 
+function timestampValue(value: string | null | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const result = new Date(value).getTime();
+  return Number.isFinite(result) ? result : Number.NEGATIVE_INFINITY;
+}
+
+export function mergeSensor(current: Sensor | undefined, incoming: Sensor): Sensor {
+  if (!current) return incoming;
+
+  const currentReadingTime = timestampValue(current.latest?.timestamp);
+  const incomingReadingTime = timestampValue(incoming.latest?.timestamp);
+  const latest = incomingReadingTime >= currentReadingTime ? incoming.latest : current.latest;
+
+  if (timestampValue(current.last_seen) > timestampValue(incoming.last_seen)) {
+    return {
+      ...incoming,
+      online: current.online,
+      stale: current.stale,
+      last_seen: current.last_seen,
+      latest,
+    };
+  }
+  return { ...incoming, latest };
+}
+
+export function mergeRestSensors(current: Sensor[], incoming: Sensor[]): Sensor[] {
+  const existing = new Map(current.map((sensor) => [sensor.id, sensor]));
+  return incoming
+    .map((sensor) => mergeSensor(existing.get(sensor.id), sensor))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
 export function mergeSummaries(current: Sensor[], summaries: SensorSummary[]): Sensor[] {
   return summaries.map((summary) => ({
     ...summary,
@@ -71,14 +103,14 @@ export function mergeSummaries(current: Sensor[], summaries: SensorSummary[]): S
 
 export function applyStreamMessage(current: Sensor[], message: StreamMessage): Sensor[] {
   if (message.type === "initial_state") {
-    return [...message.data].sort((left, right) => left.id.localeCompare(right.id));
+    return mergeRestSensors(current, message.data);
   }
   const existing = current.findIndex((sensor) => sensor.id === message.data.id);
   if (existing === -1) {
     return [...current, message.data].sort((left, right) => left.id.localeCompare(right.id));
   }
   const next = [...current];
-  next[existing] = message.data;
+  next[existing] = mergeSensor(next[existing], message.data);
   return next;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyStreamMessage, endpoint, parseStreamMessage } from "./api";
+import { applyStreamMessage, endpoint, mergeRestSensors, parseStreamMessage } from "./api";
 import type { Sensor } from "./types";
 
 const sensor = (id: string, co2: number): Sensor => ({
@@ -58,5 +58,26 @@ describe("API helpers", () => {
     expect(result).toHaveLength(2);
     expect(result[0].latest?.co2).toBe(450);
     expect(result[1].latest?.co2).toBe(500);
+  });
+
+  it("does not let an older REST response replace a newer stream reading", () => {
+    const current = sensor("air-sensor-01", 500);
+    current.latest!.timestamp = "2026-09-22T12:02:00Z";
+    current.last_seen = "2026-09-22T12:02:00Z";
+    const older = sensor("air-sensor-01", 400);
+    const result = mergeRestSensors([current], [older]);
+    expect(result[0].latest?.co2).toBe(500);
+    expect(result[0].last_seen).toBe("2026-09-22T12:02:00Z");
+  });
+
+  it("preserves a stored reading when initial stream state has no current reading", () => {
+    const stored = sensor("air-sensor-01", 425);
+    const empty = { ...sensor("air-sensor-01", 0), latest: null, last_seen: null };
+    const result = applyStreamMessage([stored], {
+      type: "initial_state",
+      timestamp: "2026-09-22T12:03:00Z",
+      data: [empty],
+    });
+    expect(result[0].latest?.co2).toBe(425);
   });
 });

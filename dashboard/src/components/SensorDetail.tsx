@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import {
   CartesianGrid,
@@ -32,6 +32,8 @@ export function SensorDetail({ sensor, config, onClose }: SensorDetailProps) {
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const panelRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -51,11 +53,42 @@ export function SensorDetail({ sensor, config, onClose }: SensorDetailProps) {
   }, [config.apiBaseUrl, hours, metric, sensor.id]);
 
   useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        event.preventDefault();
+        panelRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
+    };
   }, [onClose]);
 
   const chartData = useMemo(
@@ -75,10 +108,12 @@ export function SensorDetail({ sensor, config, onClose }: SensorDetailProps) {
   return (
     <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}>
       <section
+        ref={panelRef}
         className="detail-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="sensor-detail-title"
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="detail-header">
@@ -87,7 +122,13 @@ export function SensorDetail({ sensor, config, onClose }: SensorDetailProps) {
             <h2 id="sensor-detail-title">{sensor.name}</h2>
             <p className="detail-subtitle">{sensor.hostname}</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close details">
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Close details"
+          >
             <X size={20} />
           </button>
         </div>

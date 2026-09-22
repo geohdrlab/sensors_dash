@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { AlertCircle, FlaskConical } from "lucide-react";
 import type { DashboardConfig } from "./config";
 import { Controls } from "./components/Controls";
@@ -35,6 +35,7 @@ export default function App({ config }: { config: DashboardConfig }) {
   };
 
   const chooseSensor = (sensor: Sensor) => setSelectedSensorId(sensor.id);
+  const closeSensor = useCallback(() => setSelectedSensorId(null), []);
 
   return (
     <div className="app-shell">
@@ -108,7 +109,7 @@ export default function App({ config }: { config: DashboardConfig }) {
 
       {selectedSensor && (
         <Suspense fallback={null}>
-          <SensorDetail sensor={selectedSensor} config={config} onClose={() => setSelectedSensorId(null)} />
+          <SensorDetail sensor={selectedSensor} config={config} onClose={closeSensor} />
         </Suspense>
       )}
     </div>

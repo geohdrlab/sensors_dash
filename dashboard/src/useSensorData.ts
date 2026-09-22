@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyStreamMessage,
   getSensors,
+  mergeRestSensors,
   parseStreamMessage,
   websocketEndpoint,
 } from "./api";
@@ -31,7 +32,7 @@ export function useSensorData(config: DashboardConfig): SensorDataState {
     abortRef.current = controller;
     try {
       const result = await getSensors(config.apiBaseUrl, controller.signal);
-      setSensors(result.sort((left, right) => left.id.localeCompare(right.id)));
+      setSensors((current) => mergeRestSensors(current, result));
       setLastUpdate(new Date().toISOString());
       setError(null);
       setStreamState((current) => (current === "live" ? current : "polling"));

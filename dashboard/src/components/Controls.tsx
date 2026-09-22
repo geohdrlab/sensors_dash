@@ -42,6 +42,7 @@ export function Controls({
           type="button"
           className={selectedMetrics.length === 0 ? "filter-chip active" : "filter-chip"}
           onClick={onShowAll}
+          aria-pressed={selectedMetrics.length === 0}
         >
           Overview
         </button>
@@ -51,6 +52,7 @@ export function Controls({
             key={key}
             className={selectedMetrics.includes(key) ? "filter-chip active" : "filter-chip"}
             onClick={() => onMetricToggle(key)}
+            aria-pressed={selectedMetrics.includes(key)}
           >
             {metricDefinitions[key].label}
           </button>

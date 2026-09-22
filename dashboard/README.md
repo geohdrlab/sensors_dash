@@ -43,7 +43,13 @@ The production build reads `dashboard-config.json` before React starts. Edit the
 
 An empty `apiBaseUrl` uses the dashboard's origin. This is useful when a reverse proxy sends `/api/v1/*` to the API. A full HTTPS URL is required when the dashboard and API use different origins.
 
-Do not put an API key in this file. Static files are public to every visitor. The intended public dashboard configuration leaves API authentication optional so read-only measurements are available while IP and MAC fields remain redacted.
+Do not put an API key in this file. Static files are public to every visitor. The dashboard requires the API's public read-only mode:
+
+```bash
+AIR_REQUIRE_API_KEY=false
+```
+
+In this mode, sensor measurements are public while IP and MAC fields remain redacted. `AIR_API_KEY` may still be configured for separate authenticated research clients, but the static dashboard never receives it. If policy requires every telemetry request to be authenticated, do not publish this static dashboard until an interactive identity provider or another server-side authentication layer is available.
 
 For a cross-origin deployment, add the exact dashboard origin to the API environment. An origin has no path:
 
