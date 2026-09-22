@@ -1,6 +1,11 @@
-# GeoHDR Lab AIR-1 Sensor API
+# GeoHDR Lab AIR-1 sensors
 
-This service collects environmental measurements from nine Apollo AIR-1 sensors and exposes read-only REST and WebSocket APIs for research clients.
+This repository contains two independent applications:
+
+- `backend/` is the Python collector and read-only FastAPI service.
+- `dashboard/` is a static React client that reads the versioned API.
+
+Each application has its own dependencies and startup process. The API does not mount or serve the dashboard, so dashboard builds and deployments do not restart or modify sensor collection.
 
 ```text
 Apollo AIR-1 sensors
@@ -10,11 +15,12 @@ asynchronous collector
 SQLite
         ↓
 FastAPI
-        ↓ REST API / WebSocket
-research clients
+        ↓ REST API / WebSocket ─────→ static dashboard
+        ↓
+other research clients
 ```
 
-The former browser dashboard is preserved on the `old-dashboard` Git branch.
+See [dashboard/README.md](dashboard/README.md) for dashboard development and deployment. The earlier Next.js dashboard remains preserved on the `old-dashboard` branch of the source repository.
 
 ## Metrics
 
@@ -111,6 +117,11 @@ Copy `.env.example` as a reference. The service reads environment variables dire
 
 ```bash
 backend/venv/bin/python -m pytest -q
+cd dashboard
+npm ci
+npm test
+npm run lint
+npm run build
 ```
 
 See [docs/architecture.md](docs/architecture.md) for collector and storage details and [docs/deployment.md](docs/deployment.md) for no-root Linux operation.
